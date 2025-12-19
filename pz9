@@ -1,0 +1,173 @@
+#include <iostream>
+#include <vector>
+#include <typeinfo>
+#include <stdexcept>
+#include <cmath>
+#include <type_traits>
+
+template <typename T>
+class MyArray {
+private:
+    std::vector<T> data;
+
+public:
+    MyArray() = default;
+    
+    MyArray(size_t size) : data(size) {}
+    
+    MyArray(size_t size, const T& value) : data(size, value) {}
+    
+    MyArray(const std::vector<T>& vec) : data(vec) {}
+    
+    MyArray(const MyArray& other) : data(other.data) {}
+    
+    size_t size() const {
+        return data.size();
+    }
+    
+    T& operator[](size_t index) {
+        return data[index];
+    }
+    
+    const T& operator[](size_t index) const {
+        return data[index];
+    }
+    
+    void setElement(size_t index, const T& value) {
+        if constexpr (std::is_arithmetic_v<T>) {
+            data[index] = value;
+        } else {
+            data[index] = value;
+        }
+    }
+    
+    template <typename U = T>
+    typename std::enable_if<std::is_arithmetic_v<U>, void>::type
+    setElementWithValidation(size_t index, const U& value, 
+                             U minValue = std::numeric_limits<U>::lowest(),
+                             U maxValue = std::numeric_limits<U>::max()) {
+        if (index >= data.size()) {
+            throw std::out_of_range("Index out of range");
+        }
+        
+        if (value < minValue || value > maxValue) {
+            throw std::invalid_argument("Value out of allowed range");
+        }
+        
+        data[index] = value;
+    }
+    
+    friend std::ostream& operator<<(std::ostream& os, const MyArray& arr) {
+        os << "[";
+        for (size_t i = 0; i < arr.data.size(); ++i) {
+            os << arr.data[i];
+            if (i != arr.data.size() - 1) {
+                os << ", ";
+            }
+        }
+        os << "]";
+        return os;
+    }
+    
+    template <typename U = T>
+    typename std::enable_if<std::is_arithmetic_v<U>, double>::type
+    euclideanDistance(const MyArray& other) const {
+        if (typeid(T) != typeid(typename decltype(other)::value_type)) {
+            throw std::bad_typeid();
+        }
+        
+        if (data.size() != other.data.size()) {
+            throw std::invalid_argument("Arrays must have the same size");
+        }
+        
+        double sum = 0.0;
+        for (size_t i = 0; i < data.size(); ++i) {
+            double diff = static_cast<double>(data[i]) - static_cast<double>(other.data[i]);
+            sum += diff * diff;
+        }
+        
+        return std::sqrt(sum);
+    }
+    
+    template <typename U = T>
+    typename std::enable_if<!std::is_arithmetic_v<U>, double>::type
+    euclideanDistance(const MyArray& other) const {
+        throw std::bad_typeid();
+    }
+    
+    typename std::vector<T>::iterator begin() {
+        return data.begin();
+    }
+    
+    typename std::vector<T>::iterator end() {
+        return data.end();
+    }
+    
+    typename std::vector<T>::const_iterator begin() const {
+        return data.begin();
+    }
+    
+    typename std::vector<T>::const_iterator end() const {
+        return data.end();
+    }
+};
+
+int main() {
+    try {
+        std::cout << "=== Пример с целыми числами ===" << std::endl;
+        MyArray<int> intArray1({1, 2, 3, 4, 5});
+        MyArray<int> intArray2({6, 7, 8, 9, 10});
+        
+        std::cout << "Array 1: " << intArray1 << std::endl;
+        std::cout << "Array 2: " << intArray2 << std::endl;
+        
+        intArray1.setElementWithValidation(0, 100, 0, 1000);
+        
+        double distance = intArray1.euclideanDistance(intArray2);
+        std::cout << "Euclidean distance: " << distance << std::endl;
+        
+        std::cout << "\n=== Пример с вещественными числами ===" << std::endl;
+        MyArray<double> doubleArray1({1.5, 2.5, 3.5});
+        MyArray<double> doubleArray2({4.5, 5.5, 6.5});
+        
+        std::cout << "Array 1: " << doubleArray1 << std::endl;
+        std::cout << "Array 2: " << doubleArray2 << std::endl;
+        
+        doubleArray1.setElementWithValidation(0, 10.5, 0.0, 100.0);
+        
+        distance = doubleArray1.euclideanDistance(doubleArray2);
+        std::cout << "Euclidean distance: " << distance << std::endl;
+        
+        std::cout << "\n=== Пример со строками ===" << std::endl;
+        MyArray<std::string> strArray1({"Hello", "World"});
+        MyArray<std::string> strArray2({"Goodbye", "World"});
+        
+        std::cout << "Array 1: " << strArray1 << std::endl;
+        std::cout << "Array 2: " << strArray2 << std::endl;
+        
+        try {
+            distance = strArray1.euclideanDistance(strArray2);
+            std::cout << "Euclidean distance: " << distance << std::endl;
+        } catch (const std::bad_typeid& e) {
+            std::cout << "Caught expected exception for non-numeric type: " 
+                      << e.what() << std::endl;
+        }
+        
+        std::cout << "\n=== Пример с разными размерами массивов ===" << std::endl;
+        MyArray<int> array1({1, 2, 3});
+        MyArray<int> array2({4, 5});
+        
+        try {
+            distance = array1.euclideanDistance(array2);
+        } catch (const std::invalid_argument& e) {
+            std::cout << "Caught expected exception for different sizes: " 
+                      << e.what() << std::endl;
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    
+    return 0;
+}
